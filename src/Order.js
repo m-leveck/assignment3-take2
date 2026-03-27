@@ -4,29 +4,53 @@ export function handleInput(sInput) {
   return currentState(sInput);
 }
 
-export function clearInput(){
-  currentState = welcoming;  
+export function clearInput() {
+  currentState = welcoming;
 }
 
+// STATE 1: Welcome
 function welcoming() {
   let aReturn = [];
-  currentState = reserving;
-  aReturn.push("Welcome to Rich's Acton Rapid Test.");
-  aReturn.push("Would you like to reserve a rapid test kit?");
+  currentState = coffeeDecision;
+  aReturn.push("Would you like a coffee?");
   return aReturn;
 }
 
-function reserving(sInput) {
+// STATE 2: Coffee yes/no
+function coffeeDecision(sInput) {
   let aReturn = [];
-  currentState = welcoming
-  if (sInput.toLowerCase().startsWith('y')) {
-    aReturn.push(`Your rapid test is reserved`);
-    let d = new Date();
-    d.setMinutes(d.getMinutes() + 120);
-    aReturn.push(`Please pick it up at 123 Tidy St., Acton before ${d.toTimeString()}`);
+
+  if (sInput.toLowerCase().startsWith("y")) {
+    currentState = temperature;
+    aReturn.push("Iced or hot?");
   } else {
-    aReturn.push("Thanks for trying our reservation system");
-    aReturn.push("Maybe next time");
+    currentState = welcoming;
+    aReturn.push("Maybe next time. Have a good day!");
   }
+
+  return aReturn;
+}
+
+// STATE 3: Iced or hot
+function temperature(sInput) {
+  let aReturn = [];
+  currentState = milkChoice;
+  aReturn.push("Regular milk or oat milk?");
+  return aReturn;
+}
+
+// STATE 4: Milk choice
+function milkChoice(sInput) {
+  let aReturn = [];
+  currentState = bagelChoice;
+  aReturn.push("Would you like a bagel with that?");
+  return aReturn;
+}
+
+// STATE 5: Up sell Bagel
+function bagelChoice(sInput) {
+  let aReturn = [];
+  currentState = welcoming;
+  aReturn.push("Great! Your order will be ready in 10 minutes.");
   return aReturn;
 }
