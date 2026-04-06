@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { handleInput } from '../Order.js';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   SafeAreaView, Animated, Modal, TextInput, KeyboardAvoidingView,
@@ -6,7 +7,6 @@ import {
 } from 'react-native';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const ANTHROPIC_API_KEY = 'YOUR_API_KEY_HERE'; // 🔑 paste your key
 
 const C = {
   espresso:  '#1C1410',
@@ -37,17 +37,6 @@ const SAMPLE_ORDERS = [
   { id: '3', name: 'Bagel',             date: 'Mon, 9:01 am',        points: 80  },
   { id: '4', name: 'Ice latte',         date: 'Sun, 8:30 am',        points: 120 },
 ];
-
-const BOT_SYSTEM = `You are MaddysCafe, a friendly barista ordering assistant for a cozy coffee shop.
-Keep replies short (1-3 sentences). Be warm, conversational, and helpful.
-When an order is confirmed, end your message with exactly: [ORDER: X pts]
-where X is the total points for the order (see menu below).
-Our menu (these are the ONLY items available — politely say so if asked for anything else):
-- Bagel $4.00 → 80 pts
-- Ice Latte $6.00 → 120 pts
-- Hot Latte $5.50 → 110 pts
-If a customer orders multiple items, add the points together in the [ORDER: X pts] tag.
-Always confirm the full order before adding the tag.`;
 
 // ─── Stamp Icon ───────────────────────────────────────────────────────────────
 function CupIcon({ filled }) {
@@ -102,64 +91,20 @@ function OrderDrawer({ visible, onClose, points, onPointsEarned }) {
     }
   }, [visible]);
 
-  const send = async () => {
+ const send = () => {
     const text = input.trim();
-    if (!text || loading) return;
+    if (!text) return;
     setInput('');
 
     const userMsg = { id: Date.now().toString(), role: 'user', text };
-    const next = [...messages, userMsg];
-    setMessages(next);
-    setLoading(true);
+    setMessages(prev => [...prev, userMsg]);
 
-    try {
-      const history = next.map(m => ({
-        role: m.role === 'bot' ? 'assistant' : 'user',
-        content: m.text,
-      }));
-
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 300,
-          system: BOT_SYSTEM + `\nCustomer has ${points} beans collected.`,
-          messages: history.slice(-12),
-        }),
-      });
-
-      const data = await res.json();
-      const reply = data?.content?.[0]?.text ?? "Sorry, something went wrong!";
-
+    const responses = handleInput(text);
+    for (const response of responses) {
       setMessages(prev => [
         ...prev,
-        { id: Date.now().toString(), role: 'bot', text: reply },
+        { id: Date.now().toString() + Math.random(), role: 'bot', text: response },
       ]);
-
-      // Parse earned points
-      const match = reply.match(/\[ORDER:\s*(\d+)\s*pts\]/i);
-      if (match) {
-        const earned = parseInt(match[1], 10);
-        onPointsEarned(earned);
-        setTimeout(() => {
-          setMessages(prev => [
-            ...prev,
-            { id: Date.now() + 'p', role: 'bot', text: `+${earned} beans added to your card! 🎉` },
-          ]);
-        }, 700);
-      }
-    } catch {
-      setMessages(prev => [
-        ...prev,
-        { id: Date.now().toString(), role: 'bot', text: "Oops, I lost connection. Try again?" },
-      ]);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -402,6 +347,153 @@ fabIcon: {
 
 drawerContainer: {
   flex: 1,
-  justifyContent: 'flex-end', // 👈 this is the key change
+  justifyContent: 'flex-end', 
 },
-});
+
+// Drawer
+drawerOverlay: {
+  ...StyleSheet.absoluteFillObject,
+  backgroundColor: 'rgba(0,0,0,0.4)',
+},
+
+drawer: {
+  backgroundColor: C.white,
+  borderTopLeftRadius: 24,
+  borderTopRightRadius: 24,
+  paddingBottom: Platform.OS === 'ios' ? 34 : 16,
+  maxHeight: '85%',
+},
+
+sendIcon: {
+  color: C.espresso,
+  fontSize: 18,
+  fontWeight: '700',
+},
+
+bubble: {
+  maxWidth: '78%',
+  borderRadius: 16,
+  paddingHorizontal: 14,  // increase this, try 18 or 20
+  paddingVertical: 10,    // increase this too if you want more top/bottom space
+},
+
+chatContent: {
+  padding: 16,  // increase to 20
+  gap: 8,
+},
+
+chatList: {
+  flex: 1,
+  minHeight: 200,  // add this
+},
+
+drawer: {
+  backgroundColor: C.white,
+  borderTopLeftRadius: 24,
+  borderTopRightRadius: 24,
+  paddingBottom: Platform.OS === 'ios' ? 34 : 16,
+  maxHeight: '85%',
+  minHeight: '50%',  
+},
+
+drawerHeader: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  paddingHorizontal: 16,  // change from 20 to 16 to match chatContent padding
+  paddingVertical: 12,
+  borderBottomWidth: 1,
+  borderBottomColor: C.border,
+},
+
+drawerHandle: {
+  width: 40,
+  height: 4,
+  borderRadius: 2,
+  backgroundColor: C.border,
+  alignSelf: 'center',
+  marginTop: 12,
+  marginBottom: 8,
+},
+
+drawerTitle: {
+  fontSize: 16,
+  fontWeight: '700',
+  color: C.espresso,
+  fontFamily: 'Georgia',
+},
+
+drawerClose: {
+  width: 32,
+  height: 32,
+  borderRadius: 16,
+  backgroundColor: C.cream,
+  alignItems: 'center',
+  justifyContent: 'center',
+},
+
+drawerCloseIcon: {
+  fontSize: 22,
+  color: C.muted,
+  lineHeight: 26,
+},
+
+chatList: {
+  flex: 1,
+},
+
+bubbleBot: {
+  backgroundColor: C.cream,
+  alignSelf: 'flex-start',
+  borderBottomLeftRadius: 4,
+},
+
+bubbleUser: {
+  backgroundColor: C.gold,
+  alignSelf: 'flex-end',
+  borderBottomRightRadius: 4,
+},
+
+bubbleText: {
+  fontSize: 14,
+  lineHeight: 20,
+},
+
+bubbleTextBot: {
+  color: C.espresso,
+},
+
+bubbleTextUser: {
+  color: C.espresso,
+},
+
+inputRow: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 10,
+  paddingHorizontal: 16,
+  paddingTop: 12,
+  borderTopWidth: 1,
+  borderTopColor: C.border,
+},
+
+input: {
+  flex: 1,
+  backgroundColor: C.cream,
+  borderRadius: 24,
+  paddingHorizontal: 16,
+  paddingVertical: 10,
+  fontSize: 14,
+  color: C.espresso,
+},
+
+sendBtn: {
+  width: 40,
+  height: 40,
+  borderRadius: 20,
+  backgroundColor: C.gold,
+  alignItems: 'center',
+  justifyContent: 'center',
+},
+
+});  
